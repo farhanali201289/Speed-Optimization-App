@@ -59,7 +59,7 @@ export default function History() {
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.ok) shopify.toast.show("Rollback ho gaya");
+    if (fetcher.data.ok) shopify.toast.show("Rolled back");
     else shopify.toast.show(fetcher.data.error, { isError: true });
   }, [fetcher.state, fetcher.data, shopify]);
 
@@ -67,7 +67,7 @@ export default function History() {
     <s-page heading="History">
       <s-section heading="Applied optimizations">
         {optimizations.length === 0 ? (
-          <s-paragraph>Abhi tak koi fix apply nahi hua.</s-paragraph>
+          <s-paragraph>No fixes have been applied yet.</s-paragraph>
         ) : (
           <s-stack direction="block" gap="base">
             {optimizations.map((o) => (

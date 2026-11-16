@@ -1,4 +1,4 @@
-// Fixes ka catalog. Client aur server dono isay use karte hain, is liye yahan koi server code nahi.
+// Fix catalog, shared by client and server, so no server code here.
 
 export type FixId =
   | "preconnect"
@@ -14,16 +14,16 @@ export interface FixDefinition {
   description: string;
   metrics: string[];
   risk: "low" | "medium";
-  // In me se koi bhi PSI audit fail ho to ye fix recommend hota hai.
+  // The fix is recommended when any of these PSI audits fails.
   auditIds: string[];
 }
 
 export const FIXES: FixDefinition[] = [
   {
     id: "preload-lcp",
-    title: "LCP image preload karein",
+    title: "Preload the LCP image",
     description:
-      "Tested page ki LCP image ko <head> me fetchpriority=\"high\" ke sath preload karta hai taake browser use pehle download kare.",
+      "Preloads the tested page's LCP image in <head> with fetchpriority=\"high\" so the browser downloads it first.",
     metrics: ["LCP"],
     risk: "low",
     auditIds: [
@@ -34,9 +34,9 @@ export const FIXES: FixDefinition[] = [
   },
   {
     id: "preconnect",
-    title: "Zaroori origins se preconnect",
+    title: "Preconnect to critical origins",
     description:
-      "Shopify CDN, fonts aur slow third-party origins ke liye <link rel=\"preconnect\"> add karta hai taake DNS/TLS pehle ho jaye.",
+      "Adds <link rel=\"preconnect\"> for slow third-party origins PSI flagged, so DNS/TLS happens early.",
     metrics: ["FCP", "LCP"],
     risk: "low",
     auditIds: [
@@ -48,9 +48,9 @@ export const FIXES: FixDefinition[] = [
   },
   {
     id: "defer-js",
-    title: "Render-blocking JavaScript defer karein",
+    title: "Defer render-blocking JavaScript",
     description:
-      "layout/theme.liquid ke external <script> tags par defer lagata hai (jQuery chhor kar) taake HTML parsing na ruke.",
+      "Adds defer to external <script> tags in layout/theme.liquid (except jQuery) so HTML parsing isn't blocked.",
     metrics: ["FCP", "TBT"],
     risk: "medium",
     auditIds: [
@@ -63,9 +63,9 @@ export const FIXES: FixDefinition[] = [
   },
   {
     id: "async-css",
-    title: "Non-critical CSS async load karein",
+    title: "Load non-critical CSS asynchronously",
     description:
-      "PSI ki render-blocking list me se sirf icon/animation/popup CSS (jaise font-awesome) ko async karta hai. Layout CSS ko nahi chherta taake page toota hua na dikhe.",
+      "From PSI's render-blocking list, makes only icon/animation/popup CSS (e.g. font-awesome) async. Layout CSS is left alone so the page never renders broken.",
     metrics: ["FCP"],
     risk: "low",
     auditIds: [
@@ -76,9 +76,9 @@ export const FIXES: FixDefinition[] = [
   },
   {
     id: "lazy-media",
-    title: "Offscreen images aur iframes lazy-load",
+    title: "Lazy-load offscreen images and iframes",
     description:
-      "Sections/snippets me loading attribute ke baghair <img> aur <iframe> par loading=\"lazy\" lagata hai (hero/banner/header files chhor kar).",
+      "Adds loading=\"lazy\" to <img> and <iframe> tags without a loading attribute in sections/snippets (skipping hero/banner/header files).",
     metrics: ["LCP", "Speed Index"],
     risk: "low",
     auditIds: [
@@ -90,9 +90,9 @@ export const FIXES: FixDefinition[] = [
   },
   {
     id: "font-display",
-    title: "Fonts par font-display: swap",
+    title: "Use font-display: swap for fonts",
     description:
-      "@font-face rules aur Liquid font_face filter me font-display: swap add karta hai taake text font load hone se pehle dikh jaye.",
+      "Adds font-display: swap to @font-face rules and the Liquid font_face filter so text shows before fonts finish loading.",
     metrics: ["FCP"],
     risk: "low",
     auditIds: ["font-display", "font-display-insight"],
@@ -106,8 +106,8 @@ export function recommendedFixes(failingAuditIds: string[]): FixId[] {
   );
 }
 
-// One-click optimize: recommended fixes me se sirf low-risk wale.
-// Medium-risk (defer JS) store ke features tod sakta hai, is liye woh sirf manually select hota hai.
+// One-click optimize: only the low-risk recommended fixes.
+// Medium-risk fixes (defer JS) can break store features, so they're manual only.
 export function oneClickFixes(recommended: FixId[]): FixId[] {
   return FIXES.filter((f) => f.risk === "low" && recommended.includes(f.id)).map(
     (f) => f.id,

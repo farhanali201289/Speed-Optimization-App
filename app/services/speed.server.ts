@@ -1,4 +1,4 @@
-// Dashboard aur /app/api dono ke actions yahan handle hote hain.
+// Handles actions for both the dashboard and /app/api.
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { oneClickFixes, recommendedFixes, type FixId } from "../fixes";
@@ -46,7 +46,7 @@ export function recommendedFor(test: SpeedTestData): FixId[] {
   const failing = test.audits
     .filter((a) => a.score !== null && a.score < 0.9)
     .map((a) => a.id);
-  // preload-lcp sirf tab jab LCP kharab ho aur image mile, audit fail hona kaafi nahi.
+  // preload-lcp only when LCP is poor and an image was found; a failing audit alone isn't enough.
   const ids: FixId[] = recommendedFixes(failing).filter((id) => id !== "preload-lcp");
   const lcp = test.metrics.find((m) => m.id === "largest-contentful-paint");
   if ((lcp?.score ?? 1) < 0.9 && findLcpImage(test.audits)) ids.push("preload-lcp");
@@ -79,12 +79,12 @@ export async function handleIntent(
       const test = parseTest(
         await prisma.speedTest.findFirst({ where: { id: body.testId, shop } }),
       );
-      // One-click hamesha live (MAIN) theme par chalta hai.
+      // One-click always runs on the live (MAIN) theme.
       const theme =
         body.intent === "optimize"
           ? store.themes.find((t) => t.role === "MAIN")
           : store.themes.find((t) => t.id === body.themeId);
-      if (!theme || !test) throw new Error("Theme ya speed test nahi mila.");
+      if (!theme || !test) throw new Error("Theme or speed test not found.");
 
       const fixes: FixId[] =
         body.intent === "optimize" ? oneClickFixes(recommendedFor(test)) : body.fixes;
@@ -122,7 +122,7 @@ export async function handleIntent(
   }
 }
 
-// Sab se nayi optimization ka pehle aur baad ka score.
+// Before/after scores of the most recent optimization.
 export async function lastOptimization(shop: string) {
   const opt = await prisma.optimization.findFirst({
     where: { shop, rolledBack: false },

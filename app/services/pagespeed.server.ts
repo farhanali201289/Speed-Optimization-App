@@ -45,7 +45,7 @@ const METRIC_IDS = [
   "speed-index",
 ];
 
-// Ye audits hamesha save hote hain (score chahe kuch bhi ho) kyunke fixes inke data par depend karte hain.
+// Always kept (whatever their score) because fixes depend on their data.
 const ALWAYS_KEEP = new Set([
   "largest-contentful-paint-element",
   "lcp-discovery-insight",
@@ -117,8 +117,8 @@ export async function runPageSpeed(
   };
 }
 
-// Lighthouse node snippet me lambe attributes "…" se kat jate hain, jaise src="//x.com/a.jpg?v=123…".
-// Poora URL network-requests audit se dhoondh kar item.url me rakhte hain, taake preload asli URL ka ho.
+// Lighthouse truncates long attributes in node snippets with "…", e.g. src="//x.com/a.jpg?v=123…".
+// Look up the full URL in the network-requests audit and store it in item.url so the preload hits the real URL.
 function withFullImageUrl(item: AuditItem, rawAudits: Record<string, any>): AuditItem {
   const src =
     item.snippet?.match(/\bsrc="([^"]+)"/)?.[1] ??
@@ -136,18 +136,18 @@ function withFullImageUrl(item: AuditItem, rawAudits: Record<string, any>): Audi
       strip(r.url).startsWith(prefix),
   );
   if (match) return { ...item, url: match.url };
-  // Agar URL kata hua nahi tha to wahi istemal kar sakte hain.
+  // If the URL wasn't truncated, it can be used as is.
   return src.includes("…") ? item : { ...item, url: src.startsWith("//") ? `https:${src}` : src };
 }
 
-// Lighthouse details nested ho sakti hain (list -> table), sab items flat kar dete hain.
+// Lighthouse details can be nested (list -> table); flatten all items.
 function extractItems(details: any, out: AuditItem[] = []): AuditItem[] {
   if (!details || typeof details !== "object" || out.length >= 15) return out;
   if (details.type === "node" && details.snippet) {
     out.push({ snippet: details.snippet });
     return out;
   }
-  // "checklist" me items object hota hai (array nahi), us me URLs nahi hote.
+  // "checklist" details have an object (not an array) of items, with no URLs.
   if (!Array.isArray(details.items)) return out;
   if (details.type === "list") {
     for (const d of details.items) extractItems(d, out);

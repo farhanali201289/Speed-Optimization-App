@@ -1,4 +1,4 @@
-// Admin GraphQL helpers: themes list karna, theme files read/write/delete.
+// Admin GraphQL helpers: list themes, read/write/delete theme files.
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 
 type Admin = AdminApiContext;
@@ -43,7 +43,7 @@ export async function getStoreInfo(admin: Admin) {
   };
 }
 
-// `filenames` me wildcards chalte hain, jaise "sections/*.liquid".
+// `filenames` supports wildcards, e.g. "sections/*.liquid".
 export async function readThemeFiles(
   admin: Admin,
   themeId: string,
@@ -74,7 +74,7 @@ export async function readThemeFiles(
     const conn = data.theme?.files;
     if (!conn) break;
     for (const node of conn.nodes) {
-      // Images/fonts jaisi binary files ka body text nahi hota, unhe skip karte hain.
+      // Binary files (images, fonts) have no text body; skip them.
       if (typeof node.body?.content === "string") {
         files.push({ filename: node.filename, content: node.body.content });
       }
@@ -90,7 +90,7 @@ export async function writeThemeFiles(
   themeId: string,
   files: ThemeFile[],
 ) {
-  // Shopify ek call me 50 files tak allow karta hai.
+  // Shopify allows up to 50 files per call.
   for (let i = 0; i < files.length; i += 50) {
     const batch = files.slice(i, i + 50);
     const data = await gql(

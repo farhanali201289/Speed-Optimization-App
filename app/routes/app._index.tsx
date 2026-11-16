@@ -61,14 +61,14 @@ type Stage = "idle" | "before" | "apply" | "after" | "done" | "error";
 
 const STAGE_TEXT: Record<Stage, string> = {
   idle: "",
-  before: "1/3 — Abhi ki speed test ho rahi hai (30–60 sec)…",
-  apply: "2/3 — Live theme par fixes lag rahe hain (backup ke sath)…",
-  after: "3/3 — Fixes ke baad dobara speed test ho raha hai (30–60 sec)…",
+  before: "1/3 — Testing current speed (30–60 sec)…",
+  apply: "2/3 — Applying fixes to the live theme (with backup)…",
+  after: "3/3 — Re-testing speed after fixes (30–60 sec)…",
   done: "",
   error: "",
 };
 
-// /app/api ko call karta hai. App Bridge is fetch me session token khud lagata hai.
+// Calls /app/api. App Bridge adds the session token to this fetch automatically.
 async function callApi(body: object): Promise<IntentResult> {
   const res = await fetch("/app/api", {
     method: "POST",
@@ -77,7 +77,7 @@ async function callApi(body: object): Promise<IntentResult> {
   });
   if (!res.ok) throw new Error(`Server error ${res.status}`);
   const data: IntentResult = await res.json();
-  if (!data.ok) throw new Error(data.error ?? "Kuch ghalat ho gaya");
+  if (!data.ok) throw new Error(data.error ?? "Something went wrong");
   return data;
 }
 
@@ -112,16 +112,16 @@ export default function Dashboard() {
   useEffect(() => {
     const data = testFetcher.data;
     if (testFetcher.state !== "idle" || !data) return;
-    if (data.ok) shopify.toast.show(`Speed test mukammal: score ${data.score}`);
-    else shopify.toast.show(data.error ?? "Test fail ho gaya", { isError: true });
+    if (data.ok) shopify.toast.show(`Speed test complete: score ${data.score}`);
+    else shopify.toast.show(data.error ?? "Speed test failed", { isError: true });
   }, [testFetcher.state, testFetcher.data, shopify]);
 
   useEffect(() => {
     const data = fixFetcher.data;
     if (fixFetcher.state !== "idle" || !data) return;
-    if (!data.ok) shopify.toast.show(data.error ?? "Fix fail ho gaya", { isError: true });
+    if (!data.ok) shopify.toast.show(data.error ?? "Applying fixes failed", { isError: true });
     else if (data.intent === "apply") {
-      shopify.toast.show("Fixes theme par apply ho gaye");
+      shopify.toast.show("Fixes applied to the theme");
       revalidator.revalidate();
     }
   }, [fixFetcher.state, fixFetcher.data, shopify, revalidator]);
@@ -139,7 +139,7 @@ export default function Dashboard() {
   const toggleFix = (id: FixId, checked: boolean) =>
     setSelected((prev) => (checked ? [...prev, id] : prev.filter((f) => f !== id)));
 
-  // One click: test -> live theme par low-risk fixes -> dobara test.
+  // One click: test -> low-risk fixes on the live theme -> re-test.
   const boost = async () => {
     setStageError("");
     setNoChanges(false);
@@ -153,12 +153,12 @@ export default function Dashboard() {
         setNoChanges(true);
         setStage("done");
         revalidator.revalidate();
-        shopify.toast.show("Live theme pehle se optimized hai");
+        shopify.toast.show("Live theme is already optimized");
         return;
       }
 
       setStage("after");
-      // Shopify ko theme change publish karne ke liye thora waqt.
+      // Give Shopify a moment to publish the theme change.
       await new Promise((r) => setTimeout(r, 5000));
       const after = await callApi({ intent: "test", url, strategy });
 
@@ -181,9 +181,9 @@ export default function Dashboard() {
       <s-section heading="⚡ One-click speed boost">
         <s-stack direction="block" gap="base">
           <s-paragraph>
-            Ek click me: store ki speed test hogi, live theme ({liveTheme?.name ?? "—"}) par
-            safe (low-risk) fixes lagenge aur phir dobara test karke pehle/baad ka score dikhaya
-            jayega. Har change ka backup banta hai — History page se rollback ho sakta hai.
+            In one click: your store's speed is tested, safe (low-risk) fixes are applied to the live
+            theme ({liveTheme?.name ?? "—"}), and it's re-tested to show the before/after score.
+            Every change is backed up and can be rolled back from the History page.
           </s-paragraph>
           <s-stack direction="inline" gap="base" alignItems="center">
             <s-button
@@ -192,7 +192,7 @@ export default function Dashboard() {
               disabled={boosting || testing || fixing || !liveTheme}
               {...(boosting ? { loading: true } : {})}
             >
-              Store ki speed barhayein
+              Speed up my store
             </s-button>
             <s-text color="subdued">
               {url} · {strategy === "mobile" ? "Mobile" : "Desktop"}
@@ -201,15 +201,15 @@ export default function Dashboard() {
 
           {boosting && <s-paragraph>{STAGE_TEXT[stage]}</s-paragraph>}
           {stage === "error" && (
-            <s-banner tone="critical" heading="One-click optimize ruk gaya">
+            <s-banner tone="critical" heading="One-click optimization stopped">
               <s-paragraph>{stageError}</s-paragraph>
             </s-banner>
           )}
           {stage === "done" && noChanges && (
-            <s-banner tone="info" heading="Live theme pehle se optimized hai">
+            <s-banner tone="info" heading="Live theme is already optimized">
               <s-paragraph>
-                Safe fixes pehle hi lag chuke hain. Mazeed speed ke liye neeche "Theme fixes"
-                section me medium-risk fix (JavaScript defer) unpublished theme copy par try karein.
+                All safe fixes are already applied. For more speed, try the medium-risk fix
+                (defer JavaScript) on an unpublished theme copy in the "Theme fixes" section below.
               </s-paragraph>
             </s-banner>
           )}
@@ -218,7 +218,7 @@ export default function Dashboard() {
             <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
               <s-stack direction="block" gap="small-200">
                 <s-stack direction="inline" gap="base" alignItems="center">
-                  <s-heading>Pichli optimization</s-heading>
+                  <s-heading>Last optimization</s-heading>
                   <s-text color="subdued">
                     {lastRun.themeName} · {new Date(lastRun.createdAt).toLocaleString()}
                   </s-text>
@@ -226,22 +226,22 @@ export default function Dashboard() {
                 <s-stack direction="inline" gap="base" alignItems="center">
                   <s-text>Score:</s-text>
                   <s-badge tone={scoreTone(lastRun.before.score)} size="large">
-                    {`Pehle ${lastRun.before.score}`}
+                    {`Before ${lastRun.before.score}`}
                   </s-badge>
                   <s-text>→</s-text>
                   {lastRun.after ? (
                     <s-badge tone={scoreTone(lastRun.after.score)} size="large">
-                      {`Baad ${lastRun.after.score}`}
+                      {`After ${lastRun.after.score}`}
                     </s-badge>
                   ) : (
-                    <s-text color="subdued">baad wala test abhi nahi hua</s-text>
+                    <s-text color="subdued">after-test not run yet</s-text>
                   )}
                 </s-stack>
                 <s-table>
                   <s-table-header-row>
                     <s-table-header>Metric</s-table-header>
-                    <s-table-header>Pehle</s-table-header>
-                    <s-table-header>Baad</s-table-header>
+                    <s-table-header>Before</s-table-header>
+                    <s-table-header>After</s-table-header>
                   </s-table-header-row>
                   <s-table-body>
                     {Object.entries(METRIC_SHORT).map(([id, label]) => (
@@ -253,10 +253,9 @@ export default function Dashboard() {
                     ))}
                   </s-table-body>
                 </s-table>
-                <s-text color="subdued">Lagaye gaye fixes: {lastRun.fixes.join(", ") || "—"}</s-text>
+                <s-text color="subdued">Fixes applied: {lastRun.fixes.join(", ") || "—"}</s-text>
                 <s-text color="subdued">
-                  PageSpeed score har test me thora upar-neeche hota hai (±5), is liye LCP/FCP ka
-                  farq bhi dekhein.
+                  PageSpeed scores vary a little between runs (±5), so compare LCP/FCP too.
                 </s-text>
               </s-stack>
             </s-box>
@@ -264,7 +263,7 @@ export default function Dashboard() {
 
           {latest && autoFixes.length > 0 && !lastRun?.after && (
             <s-text color="subdued">
-              Agle one-click me lagne wale fixes: {autoFixes.map((f) => f.title).join(", ")}
+              Fixes the next one-click run will apply: {autoFixes.map((f) => f.title).join(", ")}
             </s-text>
           )}
         </s-stack>
@@ -276,7 +275,7 @@ export default function Dashboard() {
             label="Page URL"
             value={url}
             onChange={(e) => setUrl(e.currentTarget.value)}
-            details="Store ka koi bhi page test karein. Password-protected store par PSI password page test karega."
+            details="Test any page of your store. On a password-protected store, PSI tests the password page."
           />
           <s-select
             label="Device"
@@ -292,12 +291,12 @@ export default function Dashboard() {
               disabled={boosting}
               {...(testing ? { loading: true } : {})}
             >
-              Sirf speed test chalayein
+              Run speed test only
             </s-button>
           </s-stack>
           {testing && (
             <s-paragraph>
-              Google Lighthouse test chal raha hai, is me 30–60 seconds lag sakte hain…
+              Running Google Lighthouse test, this can take 30–60 seconds…
             </s-paragraph>
           )}
         </s-stack>
@@ -313,7 +312,7 @@ export default function Dashboard() {
               </s-badge>
               {previous && (
                 <s-badge tone={latest.score >= previous.score ? "success" : "critical"}>
-                  {`Pichla: ${previous.score} (${latest.score >= previous.score ? "+" : ""}${latest.score - previous.score})`}
+                  {`Previous: ${previous.score} (${latest.score >= previous.score ? "+" : ""}${latest.score - previous.score})`}
                 </s-badge>
               )}
             </s-stack>
@@ -325,7 +324,7 @@ export default function Dashboard() {
               <s-table-header-row>
                 <s-table-header>Metric</s-table-header>
                 <s-table-header>Value</s-table-header>
-                <s-table-header>Pichla</s-table-header>
+                <s-table-header>Previous</s-table-header>
               </s-table-header-row>
               <s-table-body>
                 {latest.metrics.map((m) => {
@@ -343,7 +342,7 @@ export default function Dashboard() {
               </s-table-body>
             </s-table>
 
-            <s-heading>Masle (opportunities & diagnostics)</s-heading>
+            <s-heading>Issues (opportunities & diagnostics)</s-heading>
             <s-unordered-list>
               {latest.audits
                 .filter((a) => a.score !== null && a.score < 0.9)
@@ -366,7 +365,7 @@ export default function Dashboard() {
               label="Theme"
               value={themeId}
               onChange={(e) => setThemeId(e.currentTarget.value)}
-              details="Pehle unpublished copy par try karna mehfooz hai. Har change ka backup bana kar rakha jata hai."
+              details="Trying an unpublished copy first is safest. Every change is backed up."
             >
               {store.themes.map((t) => (
                 <s-option key={t.id} value={t.id}>
@@ -410,7 +409,7 @@ export default function Dashboard() {
                 disabled={!selected.length || fixing || boosting || previewData?.intent !== "preview"}
                 {...(fixing && (fixFetcher.json as any)?.intent === "apply" ? { loading: true } : {})}
               >
-                {selectedTheme?.role === "MAIN" ? "Live theme par apply karein" : "Theme par apply karein"}
+                {selectedTheme?.role === "MAIN" ? "Apply to live theme" : "Apply to theme"}
               </s-button>
             </s-stack>
 
@@ -419,8 +418,8 @@ export default function Dashboard() {
                 tone={previewData.intent === "apply" ? "success" : "info"}
                 heading={
                   previewData.intent === "apply"
-                    ? `${previewData.changedFiles?.length ?? 0} file(s) update ho gayin`
-                    : `Preview: ${previewData.changedFiles?.length ?? 0} file(s) badlengi`
+                    ? `${previewData.changedFiles?.length ?? 0} file(s) updated`
+                    : `Preview: ${previewData.changedFiles?.length ?? 0} file(s) will change`
                 }
               >
                 <s-stack direction="block" gap="small-200">
@@ -433,8 +432,8 @@ export default function Dashboard() {
                   ))}
                   {previewData.intent === "apply" && (
                     <s-paragraph>
-                      Shopify cache update hone me 1–2 minute lag sakte hain, phir upar se speed test
-                      dobara chalayein. Kuch kharab ho to History page se rollback karein.
+                      Shopify's cache can take 1–2 minutes to update; then run the speed test again
+                      above. If anything looks wrong, roll back from the History page.
                     </s-paragraph>
                   )}
                 </s-stack>
@@ -452,12 +451,12 @@ export default function Dashboard() {
         <s-paragraph>Live theme: {liveTheme?.name ?? "—"}</s-paragraph>
       </s-section>
 
-      <s-section slot="aside" heading="Kaise kaam karta hai">
+      <s-section slot="aside" heading="How it works">
         <s-ordered-list>
-          <s-list-item>"Store ki speed barhayein" dabayein — baqi sab app khud karegi.</s-list-item>
-          <s-list-item>Sirf safe fixes live theme par lagte hain, backup ke sath.</s-list-item>
-          <s-list-item>Pehle/baad ka score aur LCP/FCP upar dikhta hai.</s-list-item>
-          <s-list-item>Kuch kharab lage to History page se rollback karein.</s-list-item>
+          <s-list-item>Click "Speed up my store" — the app does the rest.</s-list-item>
+          <s-list-item>Only safe fixes are applied to the live theme, with a backup.</s-list-item>
+          <s-list-item>Before/after score and LCP/FCP are shown above.</s-list-item>
+          <s-list-item>If anything looks wrong, roll back from the History page.</s-list-item>
         </s-ordered-list>
       </s-section>
     </s-page>

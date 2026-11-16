@@ -1,4 +1,4 @@
-// PSI audits ke hisab se theme files me fixes plan aur apply karta hai.
+// Plans and applies theme file fixes based on PSI audits.
 import type { AdminApiContext } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { FIXES, type FixId } from "../fixes";
@@ -14,11 +14,11 @@ const LAYOUT = "layout/theme.liquid";
 const SNIPPET = "snippets/speed-optimizer.liquid";
 const RENDER_TAG = "{%- render 'speed-optimizer' -%}";
 
-// Ye files above-the-fold hoti hain, inki images lazy karne se LCP kharab hota hai.
+// These files are above the fold; lazy-loading their images hurts LCP.
 const ABOVE_FOLD_FILE =
   /(hero|banner|slideshow|slider|header|logo|announcement|carousel|main-product|featured-product|image-with-text-overlay)/i;
-// Sirf wo CSS async hoti hai jo page ka layout nahi banati (icons, animations, popups).
-// Layout CSS (theme, responsive, bootstrap, custom) async karne se page toota hua dikhta hai aur CLS barhta hai.
+// Only CSS that doesn't build the page layout (icons, animations, popups) is made async.
+// Making layout CSS (theme, responsive, bootstrap, custom) async renders a broken page and raises CLS.
 const NON_CRITICAL_CSS =
   /(font-?awesome|fontawesome|icons?|animate|aos|fancybox|lightbox|magnific|photoswipe|slick-theme|owl\.theme|glightbox)[^/]*\.css/i;
 
@@ -52,7 +52,7 @@ export function findLcpImage(audits: Audit[]): string | null {
   ];
   for (const audit of audits.filter((a) => lcpIds.includes(a.id))) {
     for (const item of audit.items) {
-      // item.url pagespeed.server.ts me poora (na kata hua) URL hota hai.
+      // item.url holds the full (untruncated) URL resolved in pagespeed.server.ts.
       const url = item.url?.replace(/&amp;/g, "&");
       if (url && !url.includes("…") && /\.(jpe?g|png|webp|avif|gif)(\?|$)|\/cdn\/shop\//i.test(url)) {
         return url.startsWith("//") ? `https:${url}` : url;
@@ -94,7 +94,7 @@ export async function planFixes(
   const reports: FixReport[] = [];
 
   if (!current.has(LAYOUT)) {
-    throw new Error("Is theme me layout/theme.liquid nahi mili.");
+    throw new Error("layout/theme.liquid was not found in this theme.");
   }
 
   const edit = (report: FixReport, filename: string, next: string) => {
@@ -112,10 +112,10 @@ export async function planFixes(
 
     switch (fix.id) {
       case "preconnect": {
-        // Sirf wo third-party origins jo PSI ne critical path me pakde; store ka apna domain pehle se connected hota hai.
+        // Only third-party origins PSI flagged on the critical path; the store's own domain is already connected.
         const storeOrigin = new URL(input.storeUrl).origin;
         const testedOrigin = new URL(input.testedUrl).origin;
-        // Fonts CORS se aate hain, unke connection ke liye crossorigin chahiye; CSS/JS ke liye nahi.
+        // Fonts load via CORS and need crossorigin; CSS/JS connections don't.
         const origins = new Map<string, boolean>();
         for (const url of auditUrls(input.audits, fix.auditIds)) {
           const origin = new URL(url).origin;
@@ -123,25 +123,25 @@ export async function planFixes(
           const isFont = /\.(woff2?|ttf|otf)(\?|$)/i.test(url);
           origins.set(origin, (origins.get(origin) ?? false) || isFont);
         }
-        // 4 se zyada preconnect ulta nuqsan karte hain.
+        // More than 4 preconnects does more harm than good.
         for (const [origin, cors] of [...origins].slice(0, 4)) {
           headTags.push(`<link rel="preconnect" href="${origin}"${cors ? " crossorigin" : ""}>`);
           report.notes.push(`preconnect: ${origin}`);
         }
-        if (!origins.size) report.notes.push("Koi slow third-party origin nahi mila.");
+        if (!origins.size) report.notes.push("No slow third-party origins found.");
         break;
       }
 
       case "preload-lcp": {
         const image = findLcpImage(input.audits);
         if (!image) {
-          report.notes.push("PSI result me LCP image nahi mili (shayad LCP text hai).");
+          report.notes.push("No LCP image found in the PSI result (the LCP element may be text).");
           break;
         }
         const path = new URL(input.testedUrl).pathname;
         const condition =
           path === "/" ? "request.page_type == 'index'" : `request.path == '${path}'`;
-        // Mobile aur desktop par theme alag size ki image load karti hai, is liye preload sirf tested device ke liye.
+        // Themes load different image sizes on mobile and desktop, so preload only for the tested device.
         const media =
           input.strategy === "desktop" ? "(min-width: 768px)" : "(max-width: 767px)";
         headTags.unshift(
@@ -149,7 +149,7 @@ export async function planFixes(
         );
         report.notes.push(`LCP image (${input.strategy}): ${image}`);
         report.notes.push(
-          "Agar is page ki hero image badlein to speed test aur ye fix dobara chalayein.",
+          "If you change this page's hero image, run the speed test and this fix again.",
         );
         break;
       }
@@ -172,7 +172,7 @@ export async function planFixes(
           },
         );
         edit(report, LAYOUT, layout);
-        report.notes.push(`${count} script tag(s) par defer lagaya.`);
+        report.notes.push(`Added defer to ${count} script tag(s).`);
         break;
       }
 
@@ -216,8 +216,8 @@ export async function planFixes(
         edit(report, LAYOUT, layout);
         report.notes.push(
           count
-            ? `${count} stylesheet(s) async ki gayin.`
-            : "Koi non-critical render-blocking stylesheet theme.liquid me nahi mili.",
+            ? `Made ${count} stylesheet(s) async.`
+            : "No non-critical render-blocking stylesheet found in theme.liquid.",
         );
         break;
       }
@@ -234,7 +234,7 @@ export async function planFixes(
           });
           edit(report, filename, next);
         }
-        report.notes.push(`${count} image/iframe tag(s) lazy kiye.`);
+        report.notes.push(`Lazy-loaded ${count} image/iframe tag(s).`);
         break;
       }
 
@@ -253,22 +253,22 @@ export async function planFixes(
           });
           edit(report, filename, next);
         }
-        report.notes.push(`${count} font declaration(s) update kiye.`);
+        report.notes.push(`Updated ${count} font declaration(s).`);
         break;
       }
     }
   }
 
-  // Preconnect/preload tags ek alag snippet me jate hain jo <head> ke shuru me render hota hai.
+  // Preconnect/preload tags go into a separate snippet rendered at the top of <head>.
   const createdFiles: string[] = [];
   if (headTags.length) {
-    const snippet = `{%- comment -%} Speed Optimizer app ne generate kiya. Rollback app se karein. {%- endcomment -%}\n${headTags.join("\n")}\n`;
+    const snippet = `{%- comment -%} Generated by the Speed Optimizer app. Roll back from the app. {%- endcomment -%}\n${headTags.join("\n")}\n`;
     if (!originals.has(SNIPPET)) createdFiles.push(SNIPPET);
     current.set(SNIPPET, snippet);
 
     const layout = current.get(LAYOUT)!;
     if (!layout.includes(RENDER_TAG)) {
-      // <meta charset> pehle 1024 bytes me rehna chahiye, is liye snippet uske baad.
+      // <meta charset> must stay within the first 1024 bytes, so the snippet goes after it.
       const anchor = /<meta\s+charset[^>]*>/i.test(layout) ? /<meta\s+charset[^>]*>/i : /<head\b[^>]*>/i;
       current.set(LAYOUT, layout.replace(anchor, (m) => `${m}\n    ${RENDER_TAG}`));
     }
@@ -296,7 +296,7 @@ export async function applyPlan(
   speedTestId: string | null,
 ) {
   if (!plan.changes.length) return null;
-  // Pehle backup save, phir theme me likhna — taake fail hone par bhi rollback ho sake.
+  // Save the backup first, then write the theme, so a failed write can still be rolled back.
   const record = await prisma.optimization.create({
     data: {
       shop,
@@ -314,17 +314,17 @@ export async function applyPlan(
 
 export async function rollback(admin: AdminApiContext, shop: string, id: string) {
   const record = await prisma.optimization.findFirst({ where: { id, shop } });
-  if (!record || record.rolledBack) throw new Error("Optimization nahi mili.");
+  if (!record || record.rolledBack) throw new Error("Optimization not found.");
   const newer = await prisma.optimization.count({
     where: { shop, themeId: record.themeId, rolledBack: false, createdAt: { gt: record.createdAt } },
   });
   if (newer) {
-    throw new Error("Pehle is theme ki naye optimizations rollback karein (latest se shuru karein).");
+    throw new Error("Roll back newer optimizations on this theme first (start with the latest).");
   }
 
   const backups: ThemeFile[] = JSON.parse(record.backups);
   const created: string[] = JSON.parse(record.createdFiles);
-  // Snippet hatane se pehle layout restore karna zaroori hai, warna render tag toot jayega.
+  // Restore the layout before deleting the snippet, or its render tag would break.
   await writeThemeFiles(admin, record.themeId, backups);
   await deleteThemeFiles(admin, record.themeId, created);
 
