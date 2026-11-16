@@ -49,10 +49,10 @@ Nginx: `proxy_pass http://127.0.0.1:3000;` with Host and X-Forwarded-Proto heade
 
 After changing URLs or scopes, run `npm run deploy` from your machine to push the config to Shopify. To install on a store: Partner Dashboard → Distribution → Custom distribution → install link.
 
-Deploying an update:
+Deploying an update (from Windows just run `scripts\deploy.cmd`). The script runs this app on its own Node 22 in `/opt/node22`, so the server's system Node and other PM2 apps are untouched:
 
 ```bash
-cd /var/www/Speed-Optimization-App && git pull && npm install && npm run setup && npm run build && set -a && . ./.env && set +a && pm2 restart speed-optimizer --update-env
+cd /var/www/Speed-Optimization-App && git pull && bash scripts/vps-deploy.sh
 ```
 
 `prisma/dev.sqlite` holds the theme backups — don't delete it.
