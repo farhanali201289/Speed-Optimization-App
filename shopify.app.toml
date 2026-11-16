@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "050b2d05a65e41a0a23173382f19b857"
+client_id = "da1033cdcfe10e908521e6d5e6fe5db4"
 application_url = "https://speed-optimization.neximet.com"
 embedded = true
 name = "Speed Optimization"
