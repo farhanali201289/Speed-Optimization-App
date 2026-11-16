@@ -102,7 +102,9 @@ export async function runPageSpeed(
       score: a.score,
       savingsMs:
         a.details?.overallSavingsMs ?? a.metricSavings?.LCP ?? undefined,
-      items: extractItems(a.details),
+      items: extractItems(a.details).map((item) =>
+        ALWAYS_KEEP.has(a.id) ? withFullImageUrl(item, rawAudits) : item,
+      ),
     }))
     .sort((a, b) => (b.savingsMs ?? 0) - (a.savingsMs ?? 0));
 
@@ -115,14 +117,43 @@ export async function runPageSpeed(
   };
 }
 
+// Lighthouse node snippet me lambe attributes "…" se kat jate hain, jaise src="//x.com/a.jpg?v=123…".
+// Poora URL network-requests audit se dhoondh kar item.url me rakhte hain, taake preload asli URL ka ho.
+function withFullImageUrl(item: AuditItem, rawAudits: Record<string, any>): AuditItem {
+  const src =
+    item.snippet?.match(/\bsrc="([^"]+)"/)?.[1] ??
+    item.snippet?.match(/\bsrcset="([^"\s,]+)/)?.[1];
+  if (!src) return item;
+
+  const strip = (u: string) =>
+    u.replace(/&amp;/g, "&").replace(/^https?:/, "").replace(/^\/\//, "");
+  const prefix = strip(src.split("…")[0]);
+  const requests: any[] = rawAudits["network-requests"]?.details?.items ?? [];
+  const match = requests.find(
+    (r) =>
+      typeof r.url === "string" &&
+      (r.resourceType === "Image" || /\.(jpe?g|png|webp|avif|gif)/i.test(r.url)) &&
+      strip(r.url).startsWith(prefix),
+  );
+  if (match) return { ...item, url: match.url };
+  // Agar URL kata hua nahi tha to wahi istemal kar sakte hain.
+  return src.includes("…") ? item : { ...item, url: src.startsWith("//") ? `https:${src}` : src };
+}
+
 // Lighthouse details nested ho sakti hain (list -> table), sab items flat kar dete hain.
 function extractItems(details: any, out: AuditItem[] = []): AuditItem[] {
-  if (!details || out.length >= 15) return out;
-  if (details.type === "list" || details.type === "checklist") {
-    for (const d of details.items ?? []) extractItems(d, out);
+  if (!details || typeof details !== "object" || out.length >= 15) return out;
+  if (details.type === "node" && details.snippet) {
+    out.push({ snippet: details.snippet });
     return out;
   }
-  for (const item of details.items ?? []) {
+  // "checklist" me items object hota hai (array nahi), us me URLs nahi hote.
+  if (!Array.isArray(details.items)) return out;
+  if (details.type === "list") {
+    for (const d of details.items) extractItems(d, out);
+    return out;
+  }
+  for (const item of details.items) {
     if (out.length >= 15) break;
     const url = typeof item.url === "string" ? item.url : item.source?.url;
     const snippet = item.node?.snippet ?? item.snippet;

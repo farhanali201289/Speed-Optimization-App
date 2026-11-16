@@ -65,9 +65,9 @@ export const FIXES: FixDefinition[] = [
     id: "async-css",
     title: "Non-critical CSS async load karein",
     description:
-      "PSI ne jin stylesheets ko render-blocking bataya (main/base CSS ke ilawa) unhe preload + onload pattern se async karta hai.",
+      "PSI ki render-blocking list me se sirf icon/animation/popup CSS (jaise font-awesome) ko async karta hai. Layout CSS ko nahi chherta taake page toota hua na dikhe.",
     metrics: ["FCP"],
-    risk: "medium",
+    risk: "low",
     auditIds: [
       "render-blocking-resources",
       "render-blocking-insight",
@@ -102,6 +102,14 @@ export const FIXES: FixDefinition[] = [
 export function recommendedFixes(failingAuditIds: string[]): FixId[] {
   const ids = new Set(failingAuditIds);
   return FIXES.filter((f) => f.auditIds.some((a) => ids.has(a))).map(
+    (f) => f.id,
+  );
+}
+
+// One-click optimize: recommended fixes me se sirf low-risk wale.
+// Medium-risk (defer JS) store ke features tod sakta hai, is liye woh sirf manually select hota hai.
+export function oneClickFixes(recommended: FixId[]): FixId[] {
+  return FIXES.filter((f) => f.risk === "low" && recommended.includes(f.id)).map(
     (f) => f.id,
   );
 }

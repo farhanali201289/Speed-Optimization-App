@@ -17,8 +17,10 @@ const RENDER_TAG = "{%- render 'speed-optimizer' -%}";
 // Ye files above-the-fold hoti hain, inki images lazy karne se LCP kharab hota hai.
 const ABOVE_FOLD_FILE =
   /(hero|banner|slideshow|slider|header|logo|announcement|carousel|main-product|featured-product|image-with-text-overlay)/i;
-// Main/base stylesheet critical hoti hai, use async karne se layout flash hota hai.
-const CRITICAL_CSS = /^(base|theme|main|styles?|critical|global|app)[.-]/i;
+// Sirf wo CSS async hoti hai jo page ka layout nahi banati (icons, animations, popups).
+// Layout CSS (theme, responsive, bootstrap, custom) async karne se page toota hua dikhta hai aur CLS barhta hai.
+const NON_CRITICAL_CSS =
+  /(font-?awesome|fontawesome|icons?|animate|aos|fancybox|lightbox|magnific|photoswipe|slick-theme|owl\.theme|glightbox)[^/]*\.css/i;
 
 export interface FixReport {
   id: FixId;
@@ -39,6 +41,7 @@ interface PlanInput {
   audits: Audit[];
   testedUrl: string;
   storeUrl: string;
+  strategy: "mobile" | "desktop";
 }
 
 export function findLcpImage(audits: Audit[]): string | null {
@@ -49,12 +52,10 @@ export function findLcpImage(audits: Audit[]): string | null {
   ];
   for (const audit of audits.filter((a) => lcpIds.includes(a.id))) {
     for (const item of audit.items) {
-      const fromSnippet =
-        item.snippet?.match(/\bsrc="([^"]+)"/)?.[1] ??
-        item.snippet?.match(/\bsrcset="([^"\s,]+)/)?.[1];
-      const url = fromSnippet ?? item.url;
-      if (url && /\.(jpe?g|png|webp|avif|gif)(\?|$)|\/cdn\/shop\//i.test(url)) {
-        return url.startsWith("//") ? `https:${url}` : url.replace(/&amp;/g, "&");
+      // item.url pagespeed.server.ts me poora (na kata hua) URL hota hai.
+      const url = item.url?.replace(/&amp;/g, "&");
+      if (url && !url.includes("…") && /\.(jpe?g|png|webp|avif|gif)(\?|$)|\/cdn\/shop\//i.test(url)) {
+        return url.startsWith("//") ? `https:${url}` : url;
       }
     }
   }
@@ -111,20 +112,23 @@ export async function planFixes(
 
     switch (fix.id) {
       case "preconnect": {
+        // Sirf wo third-party origins jo PSI ne critical path me pakde; store ka apna domain pehle se connected hota hai.
         const storeOrigin = new URL(input.storeUrl).origin;
-        const origins = new Set<string>(["https://cdn.shopify.com"]);
-        if (/font_face|font_url/.test(current.get(LAYOUT)!)) {
-          origins.add("https://fonts.shopifycdn.com");
-        }
+        const testedOrigin = new URL(input.testedUrl).origin;
+        // Fonts CORS se aate hain, unke connection ke liye crossorigin chahiye; CSS/JS ke liye nahi.
+        const origins = new Map<string, boolean>();
         for (const url of auditUrls(input.audits, fix.auditIds)) {
           const origin = new URL(url).origin;
-          if (origin !== storeOrigin) origins.add(origin);
+          if (origin === storeOrigin || origin === testedOrigin) continue;
+          const isFont = /\.(woff2?|ttf|otf)(\?|$)/i.test(url);
+          origins.set(origin, (origins.get(origin) ?? false) || isFont);
         }
         // 4 se zyada preconnect ulta nuqsan karte hain.
-        for (const origin of [...origins].slice(0, 4)) {
-          headTags.push(`<link rel="preconnect" href="${origin}" crossorigin>`);
+        for (const [origin, cors] of [...origins].slice(0, 4)) {
+          headTags.push(`<link rel="preconnect" href="${origin}"${cors ? " crossorigin" : ""}>`);
           report.notes.push(`preconnect: ${origin}`);
         }
+        if (!origins.size) report.notes.push("Koi slow third-party origin nahi mila.");
         break;
       }
 
@@ -137,10 +141,13 @@ export async function planFixes(
         const path = new URL(input.testedUrl).pathname;
         const condition =
           path === "/" ? "request.page_type == 'index'" : `request.path == '${path}'`;
-        headTags.push(
-          `{%- if ${condition} -%}\n  <link rel="preload" as="image" href="${image}" fetchpriority="high">\n{%- endif -%}`,
+        // Mobile aur desktop par theme alag size ki image load karti hai, is liye preload sirf tested device ke liye.
+        const media =
+          input.strategy === "desktop" ? "(min-width: 768px)" : "(max-width: 767px)";
+        headTags.unshift(
+          `{%- if ${condition} -%}\n  <link rel="preload" as="image" href="${image}" media="${media}" fetchpriority="high">\n{%- endif -%}`,
         );
-        report.notes.push(`LCP image: ${image}`);
+        report.notes.push(`LCP image (${input.strategy}): ${image}`);
         report.notes.push(
           "Agar is page ki hero image badlein to speed test aur ye fix dobara chalayein.",
         );
@@ -176,21 +183,33 @@ export async function planFixes(
         const blockingNames = new Set(
           blocking.map((u) => new URL(u).pathname.split("/").pop()!),
         );
+        const isBlocking = (href: string) =>
+          blocking.some((u) => u.includes(href.replace(/^https?:/, "")));
         let count = 0;
         let layout = current.get(LAYOUT)!;
+        // {{ 'icons.css' | asset_url | stylesheet_tag }}
         layout = layout.replace(
           /\{\{-?\s*['"]([^'"]+\.css)['"]\s*\|\s*asset_url\s*\|\s*stylesheet_tag\s*-?\}\}/g,
           (tag, name: string) => {
-            if (CRITICAL_CSS.test(name) || !blockingNames.has(name)) return tag;
+            if (!NON_CRITICAL_CSS.test(name) || !blockingNames.has(name)) return tag;
             count++;
-            return `<link rel="preload" href="{{ '${name}' | asset_url }}" as="style" onload="this.onload=null;this.rel='stylesheet'"><noscript>{{ '${name}' | asset_url | stylesheet_tag }}</noscript>`;
+            return `<link rel="stylesheet" href="{{ '${name}' | asset_url }}" media="print" onload="this.media='all'"><noscript>{{ '${name}' | asset_url | stylesheet_tag }}</noscript>`;
           },
         );
-        // Third-party stylesheets jo PSI ne flag ki hon.
+        // {{ 'https://cdn.com/font-awesome.css' | stylesheet_tag }}
+        layout = layout.replace(
+          /\{\{-?\s*['"]((?:https?:)?\/\/[^'"]+\.css[^'"]*)['"]\s*\|\s*stylesheet_tag\s*-?\}\}/g,
+          (tag, href: string) => {
+            if (!NON_CRITICAL_CSS.test(href) || !isBlocking(href)) return tag;
+            count++;
+            return `<link rel="stylesheet" href="${href}" media="print" onload="this.media='all'"><noscript>${tag}</noscript>`;
+          },
+        );
+        // <link rel="stylesheet" href="https://cdn.com/font-awesome.css">
         layout = layout.replace(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi, (tag) => {
           const href = tag.match(/href=["']([^"']+)["']/)?.[1];
           if (!href || /\bmedia=|onload=/.test(tag)) return tag;
-          if (!blocking.some((u) => u.includes(href.replace(/^https?:/, "")))) return tag;
+          if (!NON_CRITICAL_CSS.test(href) || !isBlocking(href)) return tag;
           count++;
           return tag.replace(/\s*\/?>$/, ` media="print" onload="this.media='all'">`);
         });
@@ -249,7 +268,9 @@ export async function planFixes(
 
     const layout = current.get(LAYOUT)!;
     if (!layout.includes(RENDER_TAG)) {
-      current.set(LAYOUT, layout.replace(/<head\b[^>]*>/i, (m) => `${m}\n    ${RENDER_TAG}`));
+      // <meta charset> pehle 1024 bytes me rehna chahiye, is liye snippet uske baad.
+      const anchor = /<meta\s+charset[^>]*>/i.test(layout) ? /<meta\s+charset[^>]*>/i : /<head\b[^>]*>/i;
+      current.set(LAYOUT, layout.replace(anchor, (m) => `${m}\n    ${RENDER_TAG}`));
     }
   }
 
