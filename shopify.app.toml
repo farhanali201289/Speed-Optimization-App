@@ -1,11 +1,9 @@
-# This file stores configurations for your Shopify app.
-# `npm run config:link` chala kar client_id apne Partner app se link karein.
-client_id = ""
-name = "Speed Optimizer"
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-[access_scopes]
-# Live theme ki files read/write karne ke liye zaroori.
-scopes = "read_themes,write_themes"
+client_id = "050b2d05a65e41a0a23173382f19b857"
+application_url = "https://speed-optimization.neximet.com"
+embedded = true
+name = "Speed Optimization"
 
 [webhooks]
 api_version = "2026-10"
@@ -17,3 +15,16 @@ api_version = "2026-10"
   [[webhooks.subscriptions]]
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Live theme ki files read/write karne ke liye zaroori.
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_themes,write_themes"
+
+[auth]
+redirect_urls = [ "https://speed-optimization.neximet.com/auth/callback" ]
+
+[build]
+include_config_on_deploy = true
+# false taake `npm run dev` production URL ko tunnel URL se overwrite na kare.
+automatically_update_urls_on_dev = false

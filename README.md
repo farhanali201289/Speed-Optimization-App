@@ -33,6 +33,30 @@ npm run dev
 - **Public (App Store) app** ke liye `write_themes` ke liye Shopify se exemption request karna padta hai. Custom app ke liye zaroori nahi.
 - Password-protected dev store par PSI password page test karta hai — test se pehle password hata dein.
 
+## VPS deploy (speed-optimization.neximet.com)
+
+Ubuntu VPS par, Node 22+ ke sath:
+
+```bash
+git clone https://github.com/farhanali201289/Speed-Optimization-App.git && cd Speed-Optimization-App
+cp .env.example .env    # SHOPIFY_API_SECRET aur PAGESPEED_API_KEY bharein
+npm install && npm run setup && npm run build
+set -a && . ./.env && set +a && pm2 start npm --name speed-optimizer -- start && pm2 save
+```
+
+Nginx `proxy_pass http://127.0.0.1:3000;` (Host aur X-Forwarded-Proto headers ke sath) aur `certbot --nginx -d speed-optimization.neximet.com`.
+
+URL/scopes badlein to apne computer se `npm run deploy` chala kar config Shopify par bhejein. Store me install: Partner Dashboard → Distribution → Custom distribution → install link.
+
+Update deploy karna:
+
+```bash
+git pull && npm install && npm run setup && npm run build
+set -a && . ./.env && set +a && pm2 restart speed-optimizer --update-env
+```
+
+`prisma/dev.sqlite` me theme backups hain — ise delete na karein.
+
 ## Files
 
 - `app/services/pagespeed.server.ts` — PSI API call aur result parsing
