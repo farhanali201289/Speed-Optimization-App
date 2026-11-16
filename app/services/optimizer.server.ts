@@ -16,7 +16,7 @@ const RENDER_TAG = "{%- render 'speed-optimizer' -%}";
 
 // These files are above the fold; lazy-loading their images hurts LCP.
 const ABOVE_FOLD_FILE =
-  /(hero|banner|slideshow|slider|header|logo|announcement|carousel|main-product|featured-product|image-with-text-overlay)/i;
+  /(hero|banner|slideshow|slider|header|logo|announcement|carousel|main-product|featured-product|product-template|productpage|product-main|image-with-text-overlay)/i;
 // Only CSS that doesn't build the page layout (icons, animations, popups) is made async.
 // Making layout CSS (theme, responsive, bootstrap, custom) async renders a broken page and raises CLS.
 const NON_CRITICAL_CSS =
@@ -105,6 +105,7 @@ export async function planFixes(
   };
 
   const headTags: string[] = [];
+  const headTagFixes = new Set<FixId>();
 
   for (const fix of FIXES.filter((f) => input.fixes.includes(f.id))) {
     const report: FixReport = { id: fix.id, title: fix.title, files: [], notes: [] };
@@ -126,6 +127,7 @@ export async function planFixes(
         // More than 4 preconnects does more harm than good.
         for (const [origin, cors] of [...origins].slice(0, 4)) {
           headTags.push(`<link rel="preconnect" href="${origin}"${cors ? " crossorigin" : ""}>`);
+          headTagFixes.add(fix.id);
           report.notes.push(`preconnect: ${origin}`);
         }
         if (!origins.size) report.notes.push("No slow third-party origins found.");
@@ -144,6 +146,7 @@ export async function planFixes(
         // Themes load different image sizes on mobile and desktop, so preload only for the tested device.
         const media =
           input.strategy === "desktop" ? "(min-width: 768px)" : "(max-width: 767px)";
+        headTagFixes.add(fix.id);
         headTags.unshift(
           `{%- if ${condition} -%}\n  <link rel="preload" as="image" href="${image}" media="${media}" fetchpriority="high">\n{%- endif -%}`,
         );
@@ -267,10 +270,20 @@ export async function planFixes(
     current.set(SNIPPET, snippet);
 
     const layout = current.get(LAYOUT)!;
-    if (!layout.includes(RENDER_TAG)) {
+    const needsRenderTag = !layout.includes(RENDER_TAG);
+    if (needsRenderTag) {
       // <meta charset> must stay within the first 1024 bytes, so the snippet goes after it.
       const anchor = /<meta\s+charset[^>]*>/i.test(layout) ? /<meta\s+charset[^>]*>/i : /<head\b[^>]*>/i;
       current.set(LAYOUT, layout.replace(anchor, (m) => `${m}\n    ${RENDER_TAG}`));
+    }
+
+    // Credit the snippet (and the layout's render tag) to the fixes that produced head tags,
+    // so History and the before/after summary list them.
+    if (snippet !== originals.get(SNIPPET)) {
+      for (const report of reports.filter((r) => headTagFixes.has(r.id))) {
+        report.files.push(SNIPPET);
+        if (needsRenderTag && !report.files.includes(LAYOUT)) report.files.push(LAYOUT);
+      }
     }
   }
 
