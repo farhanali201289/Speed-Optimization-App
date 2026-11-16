@@ -1,0 +1,19 @@
+# This file stores configurations for your Shopify app.
+# `npm run config:link` chala kar client_id apne Partner app se link karein.
+client_id = ""
+name = "Speed Optimizer"
+
+[access_scopes]
+# Live theme ki files read/write karne ke liye zaroori.
+scopes = "read_themes,write_themes"
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
