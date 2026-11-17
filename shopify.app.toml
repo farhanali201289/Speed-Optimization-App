@@ -38,6 +38,5 @@ scopes = "read_themes,write_themes"
 redirect_urls = [ "https://speed-optimization.neximet.com/auth/callback" ]
 
 [build]
-include_config_on_deploy = true
 # false so `npm run dev` never overwrites the production URL with a tunnel URL.
 automatically_update_urls_on_dev = false
