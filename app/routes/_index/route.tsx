@@ -1,8 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { redirect, Form, useLoaderData } from "react-router";
+import { redirect } from "react-router";
 
-import { login } from "../../shopify.server";
-
+import { APP_NAME, SUPPORT_EMAIL } from "../../legal";
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -12,45 +11,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
-  return { showForm: Boolean(login) };
+  return null;
 };
 
+// Public landing page. Merchants install from the Shopify App Store, so there is no
+// shop-domain login form here.
 export default function App() {
-  const { showForm } = useLoaderData<typeof loader>();
-
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>{APP_NAME}</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Test your Shopify store with Google PageSpeed Insights and apply safe theme speed fixes
+          in one click — with a backup and rollback for every change.
         </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>PageSpeed test</strong>. Mobile and desktop scores, Core Web Vitals (LCP, FCP,
+            TBT, CLS) and the issues slowing your store down.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>One-click speed boost</strong>. Preloads the LCP image, preconnects slow
+            origins, loads non-critical CSS asynchronously and fixes font loading on your live
+            theme.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Safe by design</strong>. Every edited theme file is backed up first and can be
+            rolled back from the History page.
           </li>
         </ul>
+        <p className={styles.text}>
+          Install from the Shopify App Store · <a href="/privacy">Privacy policy</a> ·{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`}>Support</a>
+        </p>
       </div>
     </div>
   );
