@@ -118,7 +118,7 @@ Steps:
 3. In "One-click speed boost", click "Speed up my store". The app (1) runs a PageSpeed test, (2) applies the low-risk recommended fixes to the live theme with a backup, (3) re-tests. This takes 1–2 minutes. A "Last optimization" box then shows the before/after score and metrics.
 4. Scroll to "2. Result" to see the score, Core Web Vitals and the issues PageSpeed found.
 5. In "3. Theme fixes (advanced)", choose a theme (an unpublished copy is fine), tick fixes and click "Preview changes" — the banner lists the files that will change. Click "Apply to theme" to apply them.
-6. Open "History" in the app navigation and click "Rollback" on the latest optimization. The theme files are restored from the backup and the snippet the app added is removed.
+6. Open "History" in the app navigation and click "Rollback" on the latest optimization. The theme files are restored from the backup and the app embed's preload/preconnect settings go back to their previous values.
 7. Uninstalling the app deletes the access token immediately; all store data is deleted when Shopify sends shop/redact.
 
 The app stores no customer data. Support: farhanali.fka@gmail.com
