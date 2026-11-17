@@ -19,7 +19,7 @@ An embedded Shopify app (React Router + Polaris web components) that:
 | font-display | FCP | `font-display: swap` in `@font-face` and the `font_face` filter | ✅ |
 | Defer JS | FCP, TBT | `defer` on external scripts in `layout/theme.liquid` (jQuery skipped) | Manual only (medium risk) |
 
-Preconnect/preload tags go into `snippets/speed-optimizer.liquid`, rendered at the top of `<head>`.
+Preconnect and LCP-preload tags are rendered by the **Speed Optimizer app embed** (theme app extension in `extensions/speed-optimizer`, target `head`). The app saves them in the `speed_optimizer.head_config` app-data metafield, so these two fixes never change theme code. The merchant turns the embed on once from the dashboard banner (theme editor deep link).
 
 ## Local setup
 

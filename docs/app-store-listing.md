@@ -110,10 +110,10 @@ lcp
 ```
 Speed Optimization needs no login, account or payment — it is free and works right after install.
 
-Scopes: read_themes and write_themes. The app reads theme files to find performance issues and writes small, reversible changes (a preload/preconnect snippet, async loading for icon CSS, font-display: swap). Every edited file is backed up in our database before it is changed and can be restored from the History page.
+Scopes: read_themes and write_themes. The app reads theme files to find performance issues and writes small, reversible changes (async loading for icon CSS, font-display: swap). The LCP-image preload and preconnect tags are added through a theme app extension (the "Speed Optimizer" app embed), not by editing theme code. Every edited file is backed up in our database before it is changed and can be restored from the History page.
 
 Steps:
-1. Install the app and open it from the Apps menu. The Dashboard loads.
+1. Install the app and open it from the Apps menu. The Dashboard loads. Click "Enable app embed" in the yellow banner: the theme editor opens with the Speed Optimizer app embed turned on — click Save, then return to the app.
 2. Note: if the development store has a storefront password, Google PageSpeed Insights tests the password page. The flow still works end to end; for realistic results, disable the password in Online Store > Preferences.
 3. In "One-click speed boost", click "Speed up my store". The app (1) runs a PageSpeed test, (2) applies the low-risk recommended fixes to the live theme with a backup, (3) re-tests. This takes 1–2 minutes. A "Last optimization" box then shows the before/after score and metrics.
 4. Scroll to "2. Result" to see the score, Core Web Vitals and the issues PageSpeed found.

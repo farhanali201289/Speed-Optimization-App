@@ -13,6 +13,7 @@ import prisma from "../db.server";
 import { FIXES, oneClickFixes, scoreTone, type FixId } from "../fixes";
 import type { Metric, Strategy } from "../services/pagespeed.server";
 import { getStoreInfo } from "../services/theme.server";
+import { embedActivationUrl, isEmbedEnabled } from "../services/head-config.server";
 import {
   handleIntent,
   lastOptimization,
@@ -33,6 +34,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     lastOptimization(session.shop),
   ]);
   const [latest, previous] = tests.map(parseTest);
+  const liveTheme = store.themes.find((t) => t.role === "MAIN");
 
   return {
     store,
@@ -41,6 +43,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       previous && latest && previous.strategy === latest.strategy ? previous : null,
     recommended: latest ? [...new Set(recommendedFor(latest))] : [],
     lastRun,
+    embedEnabled: liveTheme ? await isEmbedEnabled(admin, liveTheme.id) : false,
+    embedUrl: embedActivationUrl(session.shop),
   };
 };
 
@@ -86,7 +90,8 @@ function metricValue(metrics: Metric[] | undefined, id: string) {
 }
 
 export default function Dashboard() {
-  const { store, latest, previous, recommended, lastRun } = useLoaderData<typeof loader>();
+  const { store, latest, previous, recommended, lastRun, embedEnabled, embedUrl } =
+    useLoaderData<typeof loader>();
   const shopify = useAppBridge();
   const revalidator = useRevalidator();
 
@@ -180,6 +185,17 @@ export default function Dashboard() {
     <s-page heading="Speed Optimizer">
       <s-section heading="⚡ One-click speed boost">
         <s-stack direction="block" gap="base">
+          {!embedEnabled && (
+            <s-banner tone="warning" heading="Turn on the Speed Optimizer app embed">
+              <s-paragraph>
+                The LCP image preload and preconnect fixes are added through an app embed, so your
+                theme code stays unchanged. Turn it on once in the theme editor, then click Save.
+              </s-paragraph>
+              <s-button slot="secondary-actions" href={embedUrl} target="_top">
+                Enable app embed
+              </s-button>
+            </s-banner>
+          )}
           <s-paragraph>
             In one click: your store's speed is tested, safe (low-risk) fixes are applied to the live
             theme ({liveTheme?.name ?? "—"}), and it's re-tested to show the before/after score.

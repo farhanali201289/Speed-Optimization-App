@@ -5,6 +5,7 @@ import { oneClickFixes, recommendedFixes, type FixId } from "../fixes";
 import { runPageSpeed, type Audit, type Metric, type Strategy } from "./pagespeed.server";
 import { getStoreInfo } from "./theme.server";
 import { applyPlan, findLcpImage, planFixes, type FixReport } from "./optimizer.server";
+import { EMBED_LABEL } from "./head-config.server";
 
 export interface SpeedTestData {
   id: string;
@@ -106,7 +107,10 @@ export async function handleIntent(
         intent: body.intent,
         ok: true,
         reports: plan.reports,
-        changedFiles: plan.changes.map((c) => c.filename),
+        changedFiles: [
+          ...plan.changes.map((c) => c.filename),
+          ...(plan.head ? [EMBED_LABEL] : []),
+        ],
         fixes,
       };
     }

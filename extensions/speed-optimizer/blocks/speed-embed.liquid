@@ -1,0 +1,24 @@
+{%- comment -%}
+  Speed Optimizer app embed, rendered in <head>.
+  Outputs the preconnect and LCP-image preload tags the app saved in its
+  speed_optimizer.head_config app-data metafield. No theme code is changed.
+{%- endcomment -%}
+{%- assign config = app.metafields.speed_optimizer.head_config.value -%}
+{%- if config -%}
+  {%- for origin in config.preconnects -%}
+    <link rel="preconnect" href="{{ origin.href }}"{% if origin.cors %} crossorigin{% endif %}>
+  {%- endfor -%}
+  {%- for image in config.preloads -%}
+    {%- if image.path == request.path -%}
+      <link rel="preload" as="image" href="{{ image.href }}" media="{{ image.media }}" fetchpriority="high">
+    {%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Speed Optimizer",
+  "target": "head",
+  "settings": []
+}
+{% endschema %}

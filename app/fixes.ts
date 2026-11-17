@@ -23,7 +23,7 @@ export const FIXES: FixDefinition[] = [
     id: "preload-lcp",
     title: "Preload the LCP image",
     description:
-      "Preloads the tested page's LCP image in <head> with fetchpriority=\"high\" so the browser downloads it first.",
+      "Preloads the tested page's LCP image with fetchpriority=\"high\" so the browser downloads it first. Added through the Speed Optimizer app embed — no theme code changes.",
     metrics: ["LCP"],
     risk: "low",
     auditIds: [
@@ -36,7 +36,7 @@ export const FIXES: FixDefinition[] = [
     id: "preconnect",
     title: "Preconnect to critical origins",
     description:
-      "Adds <link rel=\"preconnect\"> for slow third-party origins PSI flagged, so DNS/TLS happens early.",
+      "Adds <link rel=\"preconnect\"> for slow third-party origins PSI flagged, so DNS/TLS happens early. Added through the Speed Optimizer app embed — no theme code changes.",
     metrics: ["FCP", "LCP"],
     risk: "low",
     auditIds: [
