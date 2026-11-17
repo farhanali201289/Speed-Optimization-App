@@ -60,7 +60,7 @@ Speed Optimization dashboard with one-click speed boost and before/after PageSpe
 
 ## Screenshots (desktop, 1600×900, 3–6 images)
 
-Take these in the Shopify admin with the app open (browser window at 1600×900, hide the Sidekick bar if it covers content). Save each as PNG/JPG.
+Ready-made 1600×900 screenshots of the real app UI (Polaris components, demo data) are in `docs/listing/screenshot-1.png` … `screenshot-4.png`. Retake them from the live app any time with the same content:
 
 | # | What to show | Alt text |
 | --- | --- | --- |
